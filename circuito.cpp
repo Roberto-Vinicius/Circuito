@@ -361,14 +361,56 @@ bool Circuito::salvar(const std::string& arq) const
 // Simula o circuito
 bool Circuito::simular(const std::vector<bool3S>& in_circ)
 {
-  // Soh simula se o cicuito e o parametro forem validos
-  if (!valid() || int(in_circ.size())!=getNumInputs()) return false;
+    // Verifica se o circuito e o parâmetro são válidos
+    if (!valid() || int(in_circ.size()) != getNumInputs()) return false;
 
-  //
-  // FALTA IMPLEMENTAR
-  //
-  return false;  // REMOVA DEPOIS DE IMPLEMENTAR
+    bool todasDefinidas, algumaAtualizada;
+    int idOrigem;
 
-  // Tudo OK com a simulacao
-  return true;
+    // Inicializa as saídas das portas como indefinidas
+    for (auto& porta : ports) {
+        porta->setOutput(bool3S::UNDEF);
+    }
+
+    do {
+        todasDefinidas = true;
+        algumaAtualizada = false;
+
+        // Itera por todas as portas do circuito
+        for (int idPorta = 0; idPorta < getNumPorts(); ++idPorta) {
+            if (ports[idPorta]->getOutput() == bool3S::UNDEF) {
+                std::vector<bool3S> entradasPorta(getNumInputsPort(idPorta));
+
+                // Coleta os valores das entradas da porta
+                for (int i = 0; i < getNumInputsPort(idPorta); ++i) {
+                    idOrigem = getIdInPort(idPorta, i);
+
+                    entradasPorta[i] = (idOrigem > 0)
+                                           ? ports[idOrigem - 1]->getOutput()  // Saída de outra porta
+                                           : in_circ[-idOrigem - 1];           // Entrada do circuito
+                }
+
+                // Simula a porta com as entradas coletadas
+                ports[idPorta]->simular(entradasPorta);
+
+                if (ports[idPorta]->getOutput() == bool3S::UNDEF) {
+                    todasDefinidas = false;
+                } else {
+                    algumaAtualizada = true;
+                }
+            }
+        }
+    } while (!todasDefinidas && algumaAtualizada);
+
+    // Calcula as saídas do circuito
+    for (int idSaida = 0; idSaida < getNumOutputs(); ++idSaida) {
+        idOrigem = id_out[idSaida];
+        out_circ[idSaida] = (idOrigem > 0)
+                                ? ports[idOrigem - 1]->getOutput()  // Saída de uma porta
+                                : in_circ[-idOrigem - 1];            // Entrada do circuito
+    }
+
+    // Simulação concluída com sucesso
+    return true;
 }
+
